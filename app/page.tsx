@@ -46,7 +46,6 @@ import {
   Users,
   Bell,
   Shield,
-  Copy,
   Filter,
   Eye,
   MessageSquare,
@@ -59,7 +58,12 @@ import {
   Briefcase,
   Globe,
   UserPlus,
+  X,
 } from "lucide-react";
+import OKRMetricsOverview from "@/components/dashboard/OKRMetricsOverview";
+import StrategicAlignmentMap from "@/components/dashboard/StrategicAlignmentMap";
+import OKRChatModal from "@/components/chat/OKRChatModal";
+import AddKeyResultModal from "@/components/modals/AddKeyResultModal";
 
 // Enhanced role-based permissions with district levels
 const rolePermissions = {
@@ -135,10 +139,10 @@ const roleBasedData = {
         completion: 78,
         type: "district",
       },
-      { name: "Main Branch", count: 65, completion: 85, type: "branch" },
-      { name: "Commercial Branch", count: 48, completion: 72, type: "branch" },
+      { name: "Ijo Branch", count: 65, completion: 85, type: "branch" },
+      { name: "Finfine Branch", count: 48, completion: 72, type: "branch" },
       {
-        name: "Agricultural Branch",
+        name: "Rwanda Branch",
         count: 43,
         completion: 76,
         type: "branch",
@@ -227,9 +231,22 @@ export default function DistrictOKRDashboard() {
   const [currentRole, setCurrentRole] = useState("District Manager");
   const [showObjectiveModal, setShowObjectiveModal] = useState(false);
   const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [showAddKeyResultModal, setShowAddKeyResultModal] = useState(false);
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
+  const [activeTab, setActiveTab] = useState("my-okrs");
   const [objective1Open, setObjective1Open] = useState(true);
+  const [sidebarSearch, setSidebarSearch] = useState("");
+  const [activeChatItem, setActiveChatItem] = useState<{
+    id: string;
+    title: string;
+    type: "objective" | "keyresult";
+  } | null>(null);
+  const [activeObjectiveForKeyResult, setActiveObjectiveForKeyResult] =
+    useState<{
+      id: string;
+      title: string;
+    } | null>(null);
   const [bulkAssignData, setBulkAssignData] = useState({
     selectedUsers: [] as string[],
     selectedObjectives: [] as string[],
@@ -714,7 +731,7 @@ export default function DistrictOKRDashboard() {
                   {currentRole === "Employee" ? "Create Goal" : "Add New OKR"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="!max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-xl">
                     <Target className="w-5 h-5 text-[#e48525]" />
@@ -725,361 +742,426 @@ export default function DistrictOKRDashboard() {
                   <DialogDescription>
                     {currentRole === "Employee"
                       ? "Set a personal or professional goal to track your development and achievements."
-                      : "Define a strategic objective and assign it to team members across the district."}
+                      : "Define a strategic objective and assign it to team members."}
                   </DialogDescription>
                 </DialogHeader>
 
-                <Tabs defaultValue="basic" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                    <TabsTrigger value="assignment">Assignment</TabsTrigger>
-                    <TabsTrigger value="settings">Settings</TabsTrigger>
-                  </TabsList>
+                <div className="space-y-6 py-4">
+                  {/* Objective Title */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="objective-title"
+                      className="text-sm font-medium"
+                    >
+                      {currentRole === "Employee"
+                        ? "Goal Title"
+                        : "Objective Title"}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="objective-title"
+                      placeholder={
+                        currentRole === "Employee"
+                          ? "e.g., Complete Leadership Training"
+                          : "e.g., Improve Customer Satisfaction"
+                      }
+                      value={objectiveForm.title}
+                      onChange={(e) =>
+                        setObjectiveForm({
+                          ...objectiveForm,
+                          title: e.target.value,
+                        })
+                      }
+                      className="text-base"
+                    />
+                  </div>
 
-                  <TabsContent value="basic" className="space-y-6 py-4">
-                    {/* Objective Title */}
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="objective-description"
+                      className="text-sm font-medium"
+                    >
+                      Description
+                    </Label>
+                    <Textarea
+                      id="objective-description"
+                      placeholder={
+                        currentRole === "Employee"
+                          ? "Describe your goal, why it's important, and how you plan to achieve it..."
+                          : "Describe the objective's purpose, expected impact, and strategic alignment..."
+                      }
+                      value={objectiveForm.description}
+                      onChange={(e) =>
+                        setObjectiveForm({
+                          ...objectiveForm,
+                          description: e.target.value,
+                        })
+                      }
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Category and Priority */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="objective-title"
-                        className="text-sm font-medium"
-                      >
-                        {currentRole === "Employee"
-                          ? "Goal Title"
-                          : "Objective Title"}{" "}
-                        *
-                      </Label>
-                      <Input
-                        id="objective-title"
-                        placeholder={
-                          currentRole === "Employee"
-                            ? "e.g., Complete Leadership Training"
-                            : "e.g., Improve Customer Satisfaction"
-                        }
-                        value={objectiveForm.title}
-                        onChange={(e) =>
+                      <Label className="text-sm font-medium">Category</Label>
+                      <Select
+                        value={objectiveForm.category}
+                        onValueChange={(value) =>
                           setObjectiveForm({
                             ...objectiveForm,
-                            title: e.target.value,
+                            category: value,
                           })
                         }
-                        className="text-base"
-                      />
-                      <p className="text-xs text-slate-500">
-                        Keep it clear, inspiring, and measurable
-                      </p>
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentRole === "Employee" ? (
+                            <>
+                              <SelectItem value="development">
+                                Personal Development
+                              </SelectItem>
+                              <SelectItem value="skills">
+                                Skill Enhancement
+                              </SelectItem>
+                              <SelectItem value="performance">
+                                Performance Improvement
+                              </SelectItem>
+                              <SelectItem value="career">
+                                Career Growth
+                              </SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="financial">
+                                Financial Performance
+                              </SelectItem>
+                              <SelectItem value="customer">
+                                Customer Experience
+                              </SelectItem>
+                              <SelectItem value="operational">
+                                Operational Excellence
+                              </SelectItem>
+                              <SelectItem value="technology">
+                                Technology & Innovation
+                              </SelectItem>
+                              <SelectItem value="growth">
+                                Business Growth
+                              </SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    {/* Description */}
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="objective-description"
-                        className="text-sm font-medium"
-                      >
-                        Description
+                      <Label className="text-sm font-medium">
+                        Priority Level
                       </Label>
-                      <Textarea
-                        id="objective-description"
-                        placeholder={
-                          currentRole === "Employee"
-                            ? "Describe your goal, why it's important, and how you plan to achieve it..."
-                            : "Describe the objective's purpose, expected impact, and strategic alignment..."
-                        }
-                        value={objectiveForm.description}
-                        onChange={(e) =>
+                      <Select
+                        value={objectiveForm.priority}
+                        onValueChange={(value) =>
                           setObjectiveForm({
                             ...objectiveForm,
-                            description: e.target.value,
+                            priority: value,
                           })
                         }
-                        rows={3}
-                      />
-                    </div>
-
-                    {/* Two Column Layout */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Category */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Category</Label>
-                        <Select
-                          value={objectiveForm.category}
-                          onValueChange={(value) =>
-                            setObjectiveForm({
-                              ...objectiveForm,
-                              category: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currentRole === "Employee" ? (
-                              <>
-                                <SelectItem value="development">
-                                  Personal Development
-                                </SelectItem>
-                                <SelectItem value="skills">
-                                  Skill Enhancement
-                                </SelectItem>
-                                <SelectItem value="performance">
-                                  Performance Improvement
-                                </SelectItem>
-                                <SelectItem value="career">
-                                  Career Growth
-                                </SelectItem>
-                              </>
-                            ) : (
-                              <>
-                                <SelectItem value="financial">
-                                  Financial Performance
-                                </SelectItem>
-                                <SelectItem value="customer">
-                                  Customer Experience
-                                </SelectItem>
-                                <SelectItem value="operational">
-                                  Operational Excellence
-                                </SelectItem>
-                                <SelectItem value="technology">
-                                  Technology & Innovation
-                                </SelectItem>
-                                <SelectItem value="growth">
-                                  Business Growth
-                                </SelectItem>
-                              </>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Priority */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Priority Level *
-                        </Label>
-                        <Select
-                          value={objectiveForm.priority}
-                          onValueChange={(value) =>
-                            setObjectiveForm({
-                              ...objectiveForm,
-                              priority: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="critical">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                                Critical
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="high">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                High Priority
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="medium">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                Medium Priority
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="low">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                Low Priority
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="assignment" className="space-y-6 py-4">
-                    {/* Assignment Type - Only show options based on permissions */}
-                    {currentPermissions.canAssignToAll && (
-                      <div className="space-y-4">
-                        <Label className="text-sm font-medium">
-                          Assignment Type
-                        </Label>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div
-                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              objectiveForm.assignmentType === "individual"
-                                ? "border-[#e48525] bg-orange-50"
-                                : "border-slate-200 hover:border-slate-300"
-                            }`}
-                            onClick={() =>
-                              setObjectiveForm({
-                                ...objectiveForm,
-                                assignmentType: "individual",
-                              })
-                            }
-                          >
-                            <User className="w-6 h-6 mb-2 text-[#e48525]" />
-                            <h3 className="font-medium">Individual</h3>
-                            <p className="text-xs text-slate-600">
-                              Assign to specific person
-                            </p>
-                          </div>
-
-                          <div
-                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              objectiveForm.assignmentType === "team"
-                                ? "border-[#e48525] bg-orange-50"
-                                : "border-slate-200 hover:border-slate-300"
-                            }`}
-                            onClick={() =>
-                              setObjectiveForm({
-                                ...objectiveForm,
-                                assignmentType: "team",
-                              })
-                            }
-                          >
-                            <Users className="w-6 h-6 mb-2 text-[#e48525]" />
-                            <h3 className="font-medium">Team</h3>
-                            <p className="text-xs text-slate-600">
-                              Assign to selected team members
-                            </p>
-                          </div>
-
-                          <div
-                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              objectiveForm.assignmentType === "all-users"
-                                ? "border-[#e48525] bg-orange-50"
-                                : "border-slate-200 hover:border-slate-300"
-                            }`}
-                            onClick={() =>
-                              setObjectiveForm({
-                                ...objectiveForm,
-                                assignmentType: "all-users",
-                              })
-                            }
-                          >
-                            <Building2 className="w-6 h-6 mb-2 text-[#e48525]" />
-                            <h3 className="font-medium">Department</h3>
-                            <p className="text-xs text-slate-600">
-                              Assign to entire department
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Team Member Selection */}
-                    {(objectiveForm.assignmentType === "individual" ||
-                      objectiveForm.assignmentType === "team") && (
-                      <div className="space-y-4">
-                        <Label className="text-sm font-medium">
-                          Select Team Members
-                        </Label>
-                        <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-                          {teamMembers.map((member) => (
-                            <div
-                              key={member.id}
-                              className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-slate-50"
-                            >
-                              <Checkbox
-                                id={member.id}
-                                checked={objectiveForm.selectedUsers.includes(
-                                  member.id
-                                )}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setObjectiveForm({
-                                      ...objectiveForm,
-                                      selectedUsers: [
-                                        ...objectiveForm.selectedUsers,
-                                        member.id,
-                                      ],
-                                    });
-                                  } else {
-                                    setObjectiveForm({
-                                      ...objectiveForm,
-                                      selectedUsers:
-                                        objectiveForm.selectedUsers.filter(
-                                          (id) => id !== member.id
-                                        ),
-                                    });
-                                  }
-                                }}
-                              />
-                              <Avatar className="w-8 h-8">
-                                <AvatarFallback className="text-xs bg-slate-500 text-white">
-                                  {member.avatar}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900 truncate">
-                                  {member.name}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">
-                                  {member.role} • {member.department}
-                                </p>
-                              </div>
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="critical">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                              Critical
                             </div>
-                          ))}
+                          </SelectItem>
+                          <SelectItem value="high">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              High Priority
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              Medium Priority
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="low">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              Low Priority
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Due Date and Weight */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Due Date</Label>
+                      <Input
+                        type="date"
+                        value={objectiveForm.dueDate}
+                        onChange={(e) =>
+                          setObjectiveForm({
+                            ...objectiveForm,
+                            dueDate: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Weight (%)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="10"
+                        value={objectiveForm.weight}
+                        onChange={(e) =>
+                          setObjectiveForm({
+                            ...objectiveForm,
+                            weight: parseInt(e.target.value) || 10,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Team Assignment - Role-based */}
+                  {currentRole !== "Employee" && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">
+                          {currentRole === "District Manager"
+                            ? "District Team Assignment (Optional)"
+                            : currentRole === "Branch Manager"
+                            ? "Branch Team Assignment (Optional)"
+                            : "Team Assignment (Optional)"}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={
+                              objectiveForm.selectedUsers.length ===
+                              (currentRole === "District Manager"
+                                ? teamMembers.length
+                                : currentRole === "Branch Manager"
+                                ? teamMembers.slice(0, 8).length
+                                : teamMembers.slice(0, 4).length)
+                            }
+                            onCheckedChange={(checked) => {
+                              const targetMembers =
+                                currentRole === "District Manager"
+                                  ? teamMembers
+                                  : currentRole === "Branch Manager"
+                                  ? teamMembers.slice(0, 8)
+                                  : teamMembers.slice(0, 4);
+
+                              setObjectiveForm({
+                                ...objectiveForm,
+                                selectedUsers: checked
+                                  ? targetMembers.map((member) => member.id)
+                                  : [],
+                              });
+                            }}
+                          />
+                          <Label
+                            htmlFor="select-all"
+                            className="text-xs text-slate-600"
+                          >
+                            Select All
+                          </Label>
                         </div>
                       </div>
-                    )}
-                  </TabsContent>
 
-                  <TabsContent value="settings" className="space-y-6 py-4">
-                    {/* Advanced Settings */}
-                    <div className="space-y-4">
-                      {currentPermissions.canApproveObjectives && (
-                        <div className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <h3 className="font-medium">Require Approval</h3>
-                            <p className="text-sm text-slate-600">
-                              Objective needs approval before becoming active
-                            </p>
+                      <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
+                        {(currentRole === "District Manager"
+                          ? teamMembers
+                          : currentRole === "Branch Manager"
+                          ? teamMembers.slice(0, 8)
+                          : teamMembers.slice(0, 4)
+                        ).map((member) => (
+                          <div
+                            key={member.id}
+                            className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-white transition-colors"
+                          >
+                            <Checkbox
+                              id={member.id}
+                              checked={objectiveForm.selectedUsers.includes(
+                                member.id
+                              )}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setObjectiveForm({
+                                    ...objectiveForm,
+                                    selectedUsers: [
+                                      ...objectiveForm.selectedUsers,
+                                      member.id,
+                                    ],
+                                  });
+                                } else {
+                                  setObjectiveForm({
+                                    ...objectiveForm,
+                                    selectedUsers:
+                                      objectiveForm.selectedUsers.filter(
+                                        (id) => id !== member.id
+                                      ),
+                                  });
+                                }
+                              }}
+                            />
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-xs bg-slate-500 text-white">
+                                {member.avatar}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {member.name}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {member.role} • {member.department}
+                              </p>
+                            </div>
                           </div>
-                          <Checkbox />
+                        ))}
+                      </div>
+
+                      {objectiveForm.selectedUsers.length > 0 && (
+                        <div className="text-xs text-slate-600 bg-blue-50 p-2 rounded">
+                          📋 {objectiveForm.selectedUsers.length} team member(s)
+                          selected
+                          {currentRole === "District Manager" &&
+                            objectiveForm.selectedUsers.length > 5 &&
+                            " - District-wide objective"}
                         </div>
                       )}
+                    </div>
+                  )}
 
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h3 className="font-medium">Weekly Check-ins</h3>
-                          <p className="text-sm text-slate-600">
-                            Send weekly progress reminders to assignees
-                          </p>
+                  {/* Role-specific Additional Options */}
+                  {currentRole === "District Manager" && (
+                    <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <h4 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-blue-600" />
+                        District Manager Options
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="cascade-branches" />
+                          <Label htmlFor="cascade-branches" className="text-sm">
+                            Cascade to all branches automatically
+                          </Label>
                         </div>
-                        <Checkbox defaultChecked />
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="require-approval" />
+                          <Label htmlFor="require-approval" className="text-sm">
+                            Require branch manager approval for changes
+                          </Label>
+                        </div>
                       </div>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  )}
+
+                  {currentRole === "Branch Manager" && (
+                    <div className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
+                      <h4 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-green-600" />
+                        Branch Manager Options
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="departmental" />
+                          <Label htmlFor="departmental" className="text-sm">
+                            Apply to all departments in branch
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="weekly-reports" defaultChecked />
+                          <Label htmlFor="weekly-reports" className="text-sm">
+                            Enable weekly progress reports
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentRole === "Team Lead" && (
+                    <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
+                      <h4 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-purple-600" />
+                        Team Lead Options
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="peer-review" />
+                          <Label htmlFor="peer-review" className="text-sm">
+                            Enable peer review and feedback
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="mentoring" />
+                          <Label htmlFor="mentoring" className="text-sm">
+                            Link to team development goals
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentRole === "Employee" && (
+                    <div className="p-4 border rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50">
+                      <h4 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                        <User className="w-4 h-4 text-orange-600" />
+                        Personal Goal Options
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="manager-visibility" defaultChecked />
+                          <Label
+                            htmlFor="manager-visibility"
+                            className="text-sm"
+                          >
+                            Make visible to my manager
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="development-plan" />
+                          <Label htmlFor="development-plan" className="text-sm">
+                            Link to my development plan
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex justify-between pt-4 border-t">
-                  <div className="flex gap-2">
-                    <Button variant="outline">
-                      <Copy className="w-4 h-4 mr-2" />
-                      Save as Template
-                    </Button>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowObjectiveModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      className="bg-[#e48525] hover:bg-[#d67619]"
-                      onClick={handleCreateObjective}
-                    >
-                      <Target className="w-4 h-4 mr-2" />
-                      {currentRole === "Employee"
-                        ? "Create Goal"
-                        : "Create Objective"}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowObjectiveModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-[#e48525] hover:bg-[#d67619]"
+                    onClick={handleCreateObjective}
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    {currentRole === "Employee"
+                      ? "Create Goal"
+                      : "Create Objective"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -1099,7 +1181,7 @@ export default function DistrictOKRDashboard() {
                     Bulk Assign
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="!max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <UserPlus className="w-5 h-5 text-slate-700" />
@@ -1353,31 +1435,25 @@ export default function DistrictOKRDashboard() {
 
             {/* Analytics - Only for roles with permission */}
             {currentPermissions.canViewAnalytics && (
-              <Dialog
-                open={showAnalyticsModal}
-                onOpenChange={setShowAnalyticsModal}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Analytics
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl">
-                  <DialogHeader>
-                    <DialogTitle>OKR Analytics Dashboard</DialogTitle>
-                    <DialogDescription>
-                      Comprehensive performance analytics and insights
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="p-4">
-                    <p className="text-slate-600">
-                      Analytics dashboard content would be displayed here...
-                    </p>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button variant="outline">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Button>
             )}
+
+            {/* Chat Discussion Modal */}
+            <OKRChatModal
+              isOpen={showChatModal}
+              onClose={() => setShowChatModal(false)}
+              activeChatItem={activeChatItem}
+            />
+
+            {/* Add Key Result Modal */}
+            <AddKeyResultModal
+              isOpen={showAddKeyResultModal}
+              onClose={() => setShowAddKeyResultModal(false)}
+              objectiveTitle={activeObjectiveForKeyResult?.title || ""}
+            />
 
             <Avatar className="w-8 h-8">
               <AvatarFallback className="bg-slate-600 text-white text-sm">
@@ -1397,11 +1473,14 @@ export default function DistrictOKRDashboard() {
       {/* Navigation Tabs - Role-based */}
       <div className="bg-white border-b border-slate-200 px-6 shadow-sm">
         <div className="flex items-center gap-8">
-          {getNavigationTabs().map((tab, index) => (
+          {getNavigationTabs().map((tab) => (
             <button
               key={tab}
+              onClick={() =>
+                setActiveTab(tab.toLowerCase().replace(/\s+/g, "-"))
+              }
               className={`py-4 px-2 text-sm font-medium border-b-2 transition-all duration-200 hover:text-[#00adef] ${
-                index === 1
+                activeTab === tab.toLowerCase().replace(/\s+/g, "-")
                   ? "border-[#00adef] text-[#00adef] bg-[#00adef]/5"
                   : "border-transparent text-slate-600 hover:border-[#00adef]/30"
               }`}
@@ -1416,62 +1495,91 @@ export default function DistrictOKRDashboard() {
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r border-slate-200 h-[calc(100vh-121px)] overflow-y-auto shadow-sm">
           <div className="p-4">
+            {/* Search */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="Search areas..."
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                  className="pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:border-[#00adef] transition-colors"
+                />
+                {sidebarSearch && (
+                  <button
+                    onClick={() => setSidebarSearch("")}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Departments Section - Role-based */}
             <div>
               <h3 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wide">
                 {currentRole === "Employee" ? "My Areas" : "District Structure"}
               </h3>
               <div className="space-y-1">
-                {currentRoleData.departments.map((dept) => (
-                  <div
-                    key={dept.name}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                      dept.active
-                        ? "bg-[#e48525]/10 text-[#e48525] border-l-4 border-[#e48525]"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {dept.type === "district" && (
-                            <Globe className="w-4 h-4" />
-                          )}
-                          {dept.type === "branch" && (
-                            <Building2 className="w-4 h-4" />
-                          )}
-                          {dept.type === "department" && (
-                            <Briefcase className="w-4 h-4" />
-                          )}
-                          {dept.type === "team" && (
-                            <Users className="w-4 h-4" />
-                          )}
-                          {dept.type === "personal" && (
-                            <User className="w-4 h-4" />
-                          )}
-                          <span className="text-sm truncate">{dept.name}</span>
+                {currentRoleData.departments
+                  .filter((dept) =>
+                    dept.name
+                      .toLowerCase()
+                      .includes(sidebarSearch.toLowerCase())
+                  )
+                  .map((dept) => (
+                    <div
+                      key={dept.name}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        dept.active
+                          ? "bg-[#e48525]/10 text-[#e48525] border-l-4 border-[#e48525]"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {dept.type === "district" && (
+                              <Globe className="w-4 h-4" />
+                            )}
+                            {dept.type === "branch" && (
+                              <Building2 className="w-4 h-4" />
+                            )}
+                            {dept.type === "department" && (
+                              <Briefcase className="w-4 h-4" />
+                            )}
+                            {dept.type === "team" && (
+                              <Users className="w-4 h-4" />
+                            )}
+                            {dept.type === "personal" && (
+                              <User className="w-4 h-4" />
+                            )}
+                            <span className="text-sm truncate">
+                              {dept.name}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-slate-100 text-slate-600 ml-2"
+                          >
+                            {dept.count}
+                          </Badge>
                         </div>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs bg-slate-100 text-slate-600 ml-2"
-                        >
-                          {dept.count}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 bg-slate-200 rounded-full h-1">
-                          <div
-                            className="bg-green-500 h-1 rounded-full transition-all"
-                            style={{ width: `${dept.completion}%` }}
-                          ></div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 bg-slate-200 rounded-full h-1">
+                            <div
+                              className="bg-green-500 h-1 rounded-full transition-all"
+                              style={{ width: `${dept.completion}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-slate-500">
+                            {dept.completion}%
+                          </span>
                         </div>
-                        <span className="text-xs text-slate-500">
-                          {dept.completion}%
-                        </span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </div>
@@ -1480,334 +1588,468 @@ export default function DistrictOKRDashboard() {
         {/* Main Content */}
         <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
-            {/* Page Header - Role-based */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-900">
-                    {currentRole === "Employee" ? "My OKRs" : "OKR Management"}
-                  </h1>
-                  <p className="text-slate-600 mt-1">
-                    {currentRoleData.subtitle}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Mode
-                  </Button>
-                  {currentPermissions.canViewAnalytics && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="hover:bg-slate-50 transition-colors"
-                    >
-                      <Filter className="w-4 h-4 mr-2" />
-                      Advanced Filter
-                    </Button>
-                  )}
-                  <Button className="bg-[#e48525] hover:bg-[#d67619] transition-colors">
-                    <Zap className="w-4 h-4 mr-2" />
-                    {currentRole === "Employee"
-                      ? "Update Progress"
-                      : "Quick Start"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Summary Stats - Role-based data */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600">Total Objectives</p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {currentRoleData.totalObjectives}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      {currentRole === "Employee"
-                        ? "Personal goals"
-                        : "↑ 12% from last quarter"}
-                    </p>
-                  </div>
-                  <Target className="w-8 h-8 text-[#e48525]" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600">In Progress</p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {currentRoleData.inProgress}
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      {currentRole === "Employee"
-                        ? "Active goals"
-                        : "Active this quarter"}
-                    </p>
-                  </div>
-                  <Clock className="w-8 h-8 text-[#00adef]" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600">Completed</p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {currentRoleData.completed}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      {Math.round(
-                        (currentRoleData.completed /
-                          currentRoleData.totalObjectives) *
-                          100
-                      )}
-                      % completion rate
-                    </p>
-                  </div>
-                  <CheckCircle2 className="w-8 h-8 text-green-500" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600">At Risk</p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {currentRoleData.atRisk}
-                    </p>
-                    <p className="text-xs text-red-600 mt-1">
-                      {currentRole === "Employee"
-                        ? "Need focus"
-                        : "Need attention"}
-                    </p>
-                  </div>
-                  <AlertTriangle className="w-8 h-8 text-red-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Filters Section */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-6">
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">
-                    Status
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {statusFilters.map((filter) => (
+            {/* Tab Content */}
+            {activeTab === "overview" && (
+              <>
+                {/* Page Header - Role-based */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold text-slate-900">
+                        {currentRole === "Employee"
+                          ? "My Dashboard"
+                          : "OKR Overview"}
+                      </h1>
+                      <p className="text-slate-600 mt-1">
+                        {currentRoleData.subtitle}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
                       <Button
-                        key={filter}
                         variant="outline"
                         size="sm"
-                        onClick={() => setActiveStatusFilter(filter)}
-                        className={`transition-all duration-200 ${
-                          activeStatusFilter === filter
-                            ? "bg-[#00adef] border-[#00adef] text-white hover:bg-[#0099d4]"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
+                        className="hover:bg-slate-50 transition-colors"
                       >
-                        {filter}
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Mode
                       </Button>
-                    ))}
+                      <Button className="bg-[#e48525] hover:bg-[#d67619] transition-colors">
+                        <Zap className="w-4 h-4 mr-2" />
+                        Quick Start
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm text-slate-600">Due Date</span>
-                </div>
-                <Select defaultValue="all-tags">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all-tags">All Tags</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="strategic">Strategic</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select defaultValue="created">
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="created">
-                      Sort By: Created Date
-                    </SelectItem>
-                    <SelectItem value="due">Sort By: Due Date</SelectItem>
-                    <SelectItem value="priority">Sort By: Priority</SelectItem>
-                    <SelectItem value="status">Sort By: Status</SelectItem>
-                    <SelectItem value="progress">Sort By: Progress</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Objectives Table - Role-based content */}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-              <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-slate-50 border-b border-slate-200 text-sm font-medium text-slate-600">
-                <div className="col-span-1">#</div>
-                <div className="col-span-4">Task name</div>
-                <div className="col-span-1">Assignee</div>
-                <div className="col-span-1">Due date</div>
-                <div className="col-span-1">Status</div>
-                <div className="col-span-1">Timeline</div>
-                <div className="col-span-2">Progress</div>
-                <div className="col-span-1">Actions</div>
-              </div>
-
-              {/* Role-based Objectives */}
-              {getDistrictObjectives().map((objective, objIndex) => (
-                <Collapsible
-                  key={objIndex}
-                  open={objective1Open}
-                  onOpenChange={setObjective1Open}
-                >
-                  <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 border-b border-slate-200 transition-colors">
-                      <div className="flex items-center gap-3">
-                        {objective1Open ? (
-                          <ChevronDown className="w-4 h-4 text-slate-400 transition-transform" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-slate-400 transition-transform" />
-                        )}
-                        <div className="flex items-center gap-2">
-                          {currentRole !== "Employee" && (
-                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                          )}
-                          <span className="font-semibold text-slate-900 text-left">
-                            {objective.title}
-                          </span>
-                          {currentRole !== "Employee" && (
-                            <Badge className="bg-red-100 text-red-800 text-xs">
-                              Critical
-                            </Badge>
-                          )}
-                        </div>
+                {/* Enhanced Summary Stats - Role-based data */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                  <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-600">
+                          Total Objectives
+                        </p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {currentRoleData.totalObjectives}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {currentRole === "Employee"
+                            ? "Personal goals"
+                            : "↑ 12% from last quarter"}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {currentPermissions.canCreateObjectives && (
+                      <Target className="w-8 h-8 text-[#e48525]" />
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-600">In Progress</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {currentRoleData.inProgress}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          {currentRole === "Employee"
+                            ? "Active goals"
+                            : "Active this quarter"}
+                        </p>
+                      </div>
+                      <Clock className="w-8 h-8 text-[#00adef]" />
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-600">Completed</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {currentRoleData.completed}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {Math.round(
+                            (currentRoleData.completed /
+                              currentRoleData.totalObjectives) *
+                              100
+                          )}
+                          % completion rate
+                        </p>
+                      </div>
+                      <CheckCircle2 className="w-8 h-8 text-green-500" />
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-600">At Risk</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {currentRoleData.atRisk}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          {currentRole === "Employee"
+                            ? "Need focus"
+                            : "Need attention"}
+                        </p>
+                      </div>
+                      <AlertTriangle className="w-8 h-8 text-red-500" />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "my-okrs" && (
+              <>
+                {/* Page Header */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold text-slate-900">
+                        {currentRole === "Employee"
+                          ? "My OKRs"
+                          : "OKR Management"}
+                      </h1>
+                      <p className="text-slate-600 mt-1">
+                        Manage and track your objectives and key results
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="hover:bg-slate-50 transition-colors"
+                      >
+                        <Filter className="w-4 h-4 mr-2" />
+                        Advanced Filter
+                      </Button>
+                      <Button className="bg-[#e48525] hover:bg-[#d67619] transition-colors">
+                        <Zap className="w-4 h-4 mr-2" />
+                        {currentRole === "Employee"
+                          ? "Update Progress"
+                          : "Quick Start"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filters Section */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-6">
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700">
+                        Status
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {statusFilters.map((filter) => (
                           <Button
-                            variant="ghost"
+                            key={filter}
+                            variant="outline"
                             size="sm"
-                            className="text-[#e48525] hover:text-[#d67619] hover:bg-orange-50 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
+                            onClick={() => setActiveStatusFilter(filter)}
+                            className={`transition-all duration-200 ${
+                              activeStatusFilter === filter
+                                ? "bg-[#00adef] border-[#00adef] text-white hover:bg-[#0099d4]"
+                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }`}
                           >
-                            <Plus className="w-4 h-4 mr-1" />
-                            {currentRole === "Employee"
-                              ? "Update"
-                              : "Add Key Result"}
+                            {filter}
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-slate-100 transition-colors"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </Button>
+                        ))}
                       </div>
                     </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="space-y-0">
-                      {objective.items.map((item, index) => (
-                        <div
-                          key={index}
-                          className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="col-span-1 flex items-center">
-                            {item.icon}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-600">Due Date</span>
+                    </div>
+                    <Select defaultValue="all-tags">
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all-tags">All Tags</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                        <SelectItem value="strategic">Strategic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select defaultValue="created">
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="created">
+                          Sort By: Created Date
+                        </SelectItem>
+                        <SelectItem value="due">Sort By: Due Date</SelectItem>
+                        <SelectItem value="priority">
+                          Sort By: Priority
+                        </SelectItem>
+                        <SelectItem value="status">Sort By: Status</SelectItem>
+                        <SelectItem value="progress">
+                          Sort By: Progress
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Objectives Table - Role-based content */}
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-slate-50 border-b border-slate-200 text-sm font-medium text-slate-600">
+                    <div className="col-span-1">#</div>
+                    <div className="col-span-4">Task name</div>
+                    <div className="col-span-1">Assignee</div>
+                    <div className="col-span-1">Due date</div>
+                    <div className="col-span-1">Status</div>
+                    <div className="col-span-1">Timeline</div>
+                    <div className="col-span-2">Progress</div>
+                    <div className="col-span-1">Actions</div>
+                  </div>
+
+                  {/* Role-based Objectives */}
+                  {getDistrictObjectives().map((objective, objIndex) => (
+                    <Collapsible
+                      key={objIndex}
+                      open={objective1Open}
+                      onOpenChange={setObjective1Open}
+                    >
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 border-b border-slate-200 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {objective1Open ? (
+                              <ChevronDown className="w-4 h-4 text-slate-400 transition-transform" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-slate-400 transition-transform" />
+                            )}
+                            <div className="flex items-center gap-2">
+                              {currentRole !== "Employee" && (
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              )}
+                              <span className="font-semibold text-slate-900 text-left">
+                                {objective.title}
+                              </span>
+                              {currentRole !== "Employee" && (
+                                <Badge className="bg-red-100 text-red-800 text-xs">
+                                  Critical
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="col-span-4 flex items-center">
-                            <span className="text-slate-900">{item.task}</span>
-                          </div>
-                          <div className="col-span-1 flex items-center">
-                            <Avatar className="w-6 h-6">
-                              <AvatarFallback className="text-xs bg-slate-500 text-white">
-                                {item.assignee === "You"
-                                  ? "ME"
-                                  : item.assignee
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
-                          <div className="col-span-1 flex items-center text-sm text-slate-600">
-                            {item.dueDate}
-                          </div>
-                          <div className="col-span-1 flex items-center">
-                            <Badge className={`text-xs ${item.statusColor}`}>
-                              {item.status}
-                            </Badge>
-                          </div>
-                          <div className="col-span-1 flex items-center">
-                            <Badge className={`text-xs ${item.timelineColor}`}>
-                              {item.timeline}
-                            </Badge>
-                          </div>
-                          <div className="col-span-2 flex items-center gap-2">
-                            <Progress
-                              value={item.progress}
-                              className="flex-1 h-2"
-                            />
-                            <span className="text-sm font-medium text-slate-600">
-                              {item.progress}%
-                            </span>
-                          </div>
-                          <div className="col-span-1 flex items-center gap-1">
+                          <div className="flex items-center gap-2">
+                            {currentPermissions.canCreateObjectives && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[#e48525] hover:text-[#d67619] hover:bg-orange-50 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveObjectiveForKeyResult({
+                                    id: objective.id,
+                                    title: objective.title,
+                                  });
+                                  setShowAddKeyResultModal(true);
+                                }}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                {currentRole === "Employee"
+                                  ? "Update"
+                                  : "Add Key Result"}
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="hover:bg-slate-100 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveChatItem({
+                                  id: objective.id,
+                                  title: objective.title,
+                                  type: "objective",
+                                });
+                                setShowChatModal(true);
+                              }}
                             >
                               <MessageSquare className="w-4 h-4" />
-                              <span className="text-xs ml-1">
-                                {item.comments}
-                              </span>
                             </Button>
-                            {item.canEdit ||
-                            currentPermissions.canEditAllObjectives ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="hover:bg-slate-100 transition-colors"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="hover:bg-slate-100 transition-colors"
-                                disabled
-                              >
-                                <Lock className="w-4 h-4" />
-                              </Button>
-                            )}
                           </div>
                         </div>
-                      ))}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="space-y-0">
+                          {objective.items.map((item, index) => (
+                            <div
+                              key={index}
+                              className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="col-span-1 flex items-center">
+                                {item.icon}
+                              </div>
+                              <div className="col-span-4 flex items-center">
+                                <span className="text-slate-900">
+                                  {item.task}
+                                </span>
+                              </div>
+                              <div className="col-span-1 flex items-center">
+                                <Avatar className="w-6 h-6">
+                                  <AvatarFallback className="text-xs bg-slate-500 text-white">
+                                    {item.assignee === "You"
+                                      ? "ME"
+                                      : item.assignee
+                                          .split(" ")
+                                          .map((n) => n[0])
+                                          .join("")}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                              <div className="col-span-1 flex items-center text-sm text-slate-600">
+                                {item.dueDate}
+                              </div>
+                              <div className="col-span-1 flex items-center">
+                                <Badge
+                                  className={`text-xs ${item.statusColor}`}
+                                >
+                                  {item.status}
+                                </Badge>
+                              </div>
+                              <div className="col-span-1 flex items-center">
+                                <Badge
+                                  className={`text-xs ${item.timelineColor}`}
+                                >
+                                  {item.timeline}
+                                </Badge>
+                              </div>
+                              <div className="col-span-2 flex items-center gap-2">
+                                <Progress
+                                  value={item.progress}
+                                  className="flex-1 h-2"
+                                />
+                                <span className="text-sm font-medium text-slate-600">
+                                  {item.progress}%
+                                </span>
+                              </div>
+                              <div className="col-span-1 flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="hover:bg-slate-100 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveChatItem({
+                                      id: item.id,
+                                      title: item.task,
+                                      type: "keyresult",
+                                    });
+                                    setShowChatModal(true);
+                                  }}
+                                >
+                                  <MessageSquare className="w-4 h-4" />
+                                  <span className="text-xs ml-1">
+                                    {item.comments}
+                                  </span>
+                                </Button>
+                                {item.canEdit ||
+                                currentPermissions.canEditAllObjectives ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="hover:bg-slate-100 transition-colors"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="hover:bg-slate-100 transition-colors"
+                                    disabled
+                                  >
+                                    <Lock className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activeTab === "analytics" && (
+              <>
+                {/* Analytics Tab Content */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold text-slate-900">
+                        OKR Analytics Dashboard
+                      </h1>
+                      <p className="text-slate-600 mt-1">
+                        Comprehensive performance analytics and insights
+                      </p>
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
-            </div>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" size="sm">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        This Quarter
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        Export Report
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Analytics Content */}
+                <Tabs defaultValue="overview" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="overview">Metrics Overview</TabsTrigger>
+                    <TabsTrigger value="alignment">
+                      Strategic Alignment
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="overview">
+                    <OKRMetricsOverview
+                      currentRole={currentRole}
+                      currentRoleData={currentRoleData}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="alignment">
+                    <StrategicAlignmentMap currentRole={currentRole} />
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+
+            {(activeTab === "team-okrs" ||
+              activeTab === "reports" ||
+              activeTab === "templates" ||
+              activeTab === "settings") && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  {activeTab.charAt(0).toUpperCase() +
+                    activeTab.slice(1).replace("-", " ")}{" "}
+                  Coming Soon
+                </h3>
+                <p className="text-slate-600">
+                  This section is under development and will be available soon.
+                </p>
+              </div>
+            )}
           </div>
         </main>
       </div>
